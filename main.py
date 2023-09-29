@@ -1,80 +1,93 @@
-# Program Name: Question 2
-# Program Description: Question 2 analyzes a log file (part2.log) containing Linux server log entries, where each entry includes a timestamp, log level,
-# and component information. It parses the log file to identify and print the three most commonly used components, provides brief descriptions for these components,
-# and generates a bar graph that illustrates the usage patterns of these components during both working and after hours, dividing the day into distinct periods.
+# Program Name: Question 1
+# Program Description: Question 1performs cryptographic operations, including verifying file hashes, decrypting AES-
+# encrypted data, and verifying plaintext integrity using a provided signature and public key
 # Written By: Vanessa Rice
-# Written On: September 19, 2023
+# Written On: September 18, 2023
 
 # Imports
-import re
-import datetime
-import matplotlib.pyplot as plt
-from collections import defaultdict, Counter
+from Crypto.Cipher import AES
+from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_PSS
+from Crypto.Hash import SHA256, MD5
+import base64
 
-# Step 1: Open the log file and read lines one at a time
-log_entries = []
-log_file_path = 'part2.log'
 
-# Read lines one at a time
-def get_line(file_path: str):
-    with open(log_file_path, 'r') as log_file:
-        for line in log_file:
-            yield line
+# Step 1: Define AESCrypto class for AES encryption and decryption
+class AESCrypto:
+    def md5_hash(self, text):
+        h = MD5.new()
+        h.update(text.encode())
+        return h.hexdigest()
 
-for line in get_line(log_file_path):
-    # Split each line by spaces
-    parts = line.split()
-    if len(parts) >= 6:
-        # Extract date and component fields
-        date_str = " ".join(parts[:3])
-        component = parts[4].split('[')[0]
-        log_entries.append((date_str, component))
+    def __init__(self, key):
+        # Key Size is 128 bits
+        self.key = self.md5_hash(key)
 
-# Step 2: Create a datetime object to record the date
-date_format = "%b %d %H:%M:%S"
-dates = [datetime.datetime.strptime(date_str, date_format) for date_str, _ in log_entries]
-print(len(log_entries))
 
-# Step 3: Find and print the three most commonly used components
-component_counts = Counter(component for _, component in log_entries)
-common_components = component_counts.most_common(3)
-print("Three most common components:")
-for component, count in common_components:
-    print(f"{component}: {count} occurrences")
+    def decrypt(self, enctext):
+        enctext = base64.b64decode(enctext)
+        iv = enctext[:16]
+        crypto = AES.new(self.key.encode(), AES.MODE_CBC, iv)
+        # Inpad the blocks before decrypting
+        unpad = lambda s: s[:-ord(s[-1:])]
+        return unpad(crypto.decrypt(enctext[16:]))
 
-# Step 4: Create dictionaries to count component usage during working and after hours
-working_hours_start = 9
-working_hours_end = 17
-working_hours_components = defaultdict(int)
-after_hours_components = defaultdict(int)
+# Step 2: Read the expected hash values from 'part1.sha256' file
+def calculate_hash(filename):
+    hasher = SHA256.new()
+    with open(filename, 'rb') as f:
+        while True:
+            data = f.read()
+            if not data:
+                break
+            hasher.update(data)
+    return hasher
 
-# Step 5: Count component usage during working and after hours
-for date, component in zip(dates, (comp for _, comp in log_entries)):
-    if working_hours_start <= date.hour < working_hours_end:
-        working_hours_components[component] += 1
+def verify_hash(filename, expected_hash):
+    calculated_hash = calculate_hash(filename).hexdigest()
+    return calculated_hash == expected_hash
+
+def read_expected_hashes(filename):
+    expected_hashes = {}
+    with open(filename, 'r') as file:
+        for line in file:
+            parts = line.strip().split()
+            if len(parts) == 2:
+                file_name, hash_value = parts
+                expected_hashes[file_name] = hash_value
+    return expected_hashes
+
+# Read expected hash values from 'part1.sha256' file
+expected_hashes = read_expected_hashes('part1.sha256')
+
+# Verify the hashes using the expected_hashes dictionary
+for file_name, expected_hash in expected_hashes.items():
+    if verify_hash(file_name, expected_hash):
+        print(f"Hash for {file_name} verified successfully.")
     else:
-        after_hours_components[component] += 1
+        print(f"Hash verification failed for {file_name}.")
 
-# Extract data for plotting
-common_components_names = [component for component, _ in common_components]
-working_hours_counts = [working_hours_components[component] for component in common_components_names]
-after_hours_counts = [after_hours_components[component] for component in common_components_names]
+# Step 3: Decrypt the encrypted text file using AES-128.
+aes = AESCrypto('sfhaCS2023')
+with open('part1.txt.enc', 'rb') as encrypted_file:
+    encrypted_text = encrypted_file.read()
+    decrypted_text = aes.decrypt(encrypted_text)
 
-# Step 6: Create a bar plot to visualize component usage
-plt.figure(figsize=(10, 6))
+print("Decrypted Text:")
+print(decrypted_text.decode())
 
-bar_width = 0.4
-index = range(len(common_components_names))
+# Step 4: Verify the plaintext using the provided signature and public key.
+with open('publickey.pem', 'rb') as key_file:
+    public_key = RSA.import_key(key_file.read())
 
-plt.bar(index, working_hours_counts, bar_width, label='Working Hours', color='red')
-plt.bar([i + bar_width for i in index], after_hours_counts, bar_width, label='After Hours', color='blue')
+with open('part1.txt.sig', 'rb') as signature_file:
+    signature = signature_file.read()
 
-plt.xlabel('Components')
-plt.ylabel('Number of Entries')
-plt.title('Component Usage During Working Hours and After Hours')
-plt.xticks([i + bar_width / 2 for i in index], common_components_names, rotation=45)
-plt.legend()
-plt.tight_layout()
-plt.show()
+hasher = SHA256.new()
+hasher.update(decrypted_text)
 
-
+try:
+    PKCS1_PSS.new(public_key).verify(hasher, signature)
+    print("Signature verification successful. The file is authentic.")
+except (ValueError, TypeError):
+    print("Signature verification failed. The file may have been tampered with.")
