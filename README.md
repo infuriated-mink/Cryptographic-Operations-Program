@@ -19,30 +19,32 @@ The **Cryptographic Operations Program** is a comprehensive Python solution desi
 
 Before using this program, ensure you have the required Python modules installed:
 
-```bash
+```
 pip install pycryptodome
+```
 
 ### Installation
 Clone this repository to your local machine:
-bash
-
+```
 git clone https://github.com/your-username/cryptographic-operations-program.git
 cd cryptographic-operations-program
+```
 ## Install the necessary Python libraries:
-bash
-
+```
 pip install pycryptodome
+```
 [Optional] Prepare your cryptographic files. Place the encrypted data file (part1.txt.enc), the digital signature file (part1.txt.sig), the public key file (publickey.pem), and the file containing expected hashes (part1.sha256) in the project directory.
 ## Usage
 Open your terminal or command prompt.
 
 ## Navigate to the project directory:
-
+```
 cd cryptographic-operations-program
+```
 Run the program:
-bash
-
+```
 python main.py
+```
 
 ### License
 This project is licensed under the MIT License - see the LICENSE file for details.
